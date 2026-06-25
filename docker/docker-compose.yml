@@ -1,0 +1,118 @@
+# =============================================================================
+#  کلاسترِ Hadoop 2.7.4 (Web UI روی پورت 50070) + Hive + SQL Server
+#  پایه: big-data-europe/docker-hadoop & docker-hive  (تگِ ...hadoop2.7.4-java8)
+#
+#  سرویس‌های مقیاس‌پذیر (بدونِ container_name):  datanode ، nodemanager
+#    docker compose -f docker-compose.yml up -d --scale datanode=2 --scale nodemanager=5
+#
+#  سرویس‌های ثابت (با container_name، چون اجرا/مانیتور از طریقشان انجام می‌شود):
+#    namenode (50070) ، resourcemanager (8088) ، historyserver (8188) ،
+#    hive-server (10000) ، hive-metastore (9083) ، sqlserver (1433)
+# =============================================================================
+
+services:
+
+  # ───────────────────────────── HDFS ─────────────────────────────
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
+    container_name: namenode
+    hostname: namenode
+    env_file: ./hadoop-hive.env
+    environment:
+      - CLUSTER_NAME=hadoop-dotnet
+    ports:
+      - "50070:50070"   # ★ Web UI موردِ نظرِ پروژه
+    volumes:
+      - nn:/hadoop/dfs/name
+      - ../data:/data-local   # دیتاستِ میزبان برای hdfs dfs -put و getmerge (bind به D:\...\data)
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
+    # بدونِ container_name و بدونِ پورتِ میزبان → قابلِ scale (پایه: ۲ گره).
+    env_file: ./hadoop-hive.env
+    environment:
+      SERVICE_PRECONDITION: "namenode:8020 namenode:50070"
+    # دادهٔ بلاک‌ها روی volume ناشناس (هر replica فضای خودش).
+
+  # ─────────────────────────── YARN ───────────────────────────────
+  resourcemanager:
+    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop2.7.4-java8
+    container_name: resourcemanager
+    hostname: resourcemanager
+    env_file: ./hadoop-hive.env
+    environment:
+      SERVICE_PRECONDITION: "namenode:8020 namenode:50070 datanode:50075"
+    ports:
+      - "8088:8088"     # YARN ResourceManager UI
+
+  nodemanager:
+    build:
+      context: ./nodemanager      # ایمیجِ سفارشی با باینری‌های .NET
+    image: hadoop-dotnet-nodemanager:local
+    # بدونِ container_name → قابلِ scale به ۱/۵/۱۰ (متغیرِ اصلیِ بنچمارک).
+    env_file: ./hadoop-hive.env
+    environment:
+      SERVICE_PRECONDITION: "namenode:8020 namenode:50070 resourcemanager:8088"
+    depends_on:
+      - resourcemanager
+
+  historyserver:
+    image: bde2020/hadoop-historyserver:2.0.0-hadoop2.7.4-java8
+    container_name: historyserver
+    hostname: historyserver
+    env_file: ./hadoop-hive.env
+    environment:
+      SERVICE_PRECONDITION: "namenode:8020 namenode:50070 resourcemanager:8088"
+    ports:
+      - "8188:8188"
+    volumes:
+      - history:/hadoop/yarn/timeline
+
+  # ───────────────────────────── Hive ─────────────────────────────
+  hive-metastore-postgresql:
+    image: bde2020/hive-metastore-postgresql:2.3.0
+    container_name: hive-metastore-postgresql
+    hostname: hive-metastore-postgresql
+
+  hive-metastore:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-metastore
+    hostname: hive-metastore
+    env_file: ./hadoop-hive.env
+    command: /opt/hive/bin/hive --service metastore
+    environment:
+      SERVICE_PRECONDITION: "namenode:8020 namenode:50070 hive-metastore-postgresql:5432"
+    ports:
+      - "9083:9083"
+
+  hive-server:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-server
+    hostname: hive-server
+    env_file: ./hadoop-hive.env
+    environment:
+      HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
+      SERVICE_PRECONDITION: "hive-metastore:9083"
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+
+  # ──────────────────── SQL Server (مبنای تک‌رشته‌ایِ Dapper) ────────────────────
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    hostname: sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Hadoop!Dapper2024"
+      MSSQL_PID: "Developer"
+    ports:
+      - "14333:1433"   # 1433 روی میزبان رزرو/مسدود بود → پورتِ میزبان 14333
+    volumes:
+      - mssql:/var/opt/mssql
+    mem_limit: 4g
+
+volumes:
+  nn:
+  history:
+  mssql:

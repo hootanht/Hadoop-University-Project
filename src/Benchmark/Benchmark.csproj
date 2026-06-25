@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Benchmark Orchestrator (روی میزبان، net8.0).
+    وظیفه: اجرای ماتریسِ بنچمارک به‌صورتِ خودکار:
+      تعدادِ گره {1,5,10} × اندازهٔ Split {64,128,256} MB × تکرار،
+    اندازه‌گیریِ Wall-clock با Stopwatch، خواندنِ زمانِ اپلیکیشن از YARN REST،
+    نوشتنِ results.csv و تولیدِ نمودارهای Mermaid (charts.md).
+    کنترلِ کلاستر از طریقِ فراخوانیِ docker / docker compose انجام می‌شود.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Benchmark</AssemblyName>
+    <RootNamespace>HadoopDotNet.Benchmark</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

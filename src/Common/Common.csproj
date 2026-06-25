@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    کتابخانهٔ مشترک (Shared library).
+    هدف: منطقِ «استخراج و نرمال‌سازی دسته (category)» در یک‌جا تعریف شود تا
+    هم Mapper (مسیر MapReduce) و هم Validator (مبنای تک‌رشته‌ای SQL) *دقیقاً*
+    یکسان عمل کنند. این یکسانی، پایهٔ درستیِ مقایسهٔ صحت (Correctness) است.
+
+    netstandard2.0 انتخاب شده تا هم از netcoreapp3.1 (Mapper/Reducer) و هم از
+    net8.0 (Validator/Benchmark) قابل ارجاع باشد.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>HadoopDotNet.Common</RootNamespace>
+    <AssemblyName>HadoopDotNet.Common</AssemblyName>
+  </PropertyGroup>
+
+</Project>

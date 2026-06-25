@@ -1,0 +1,7 @@
+{
+  "//": "SDK روی خانوادهٔ 10.0 پین شده. ابزارهای میزبان net10.0 هستند و با همین SDK ساخته می‌شوند؛ SDK 10 همچنان می‌تواند netcoreapp3.1 (Mapper/Reducer داخلِ کانتینر) را self-contained منتشر کند.",
+  "sdk": {
+    "version": "10.0.300",
+    "rollForward": "latestFeature"
+  }
+}

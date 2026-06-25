@@ -1,0 +1,16 @@
+# .NET build output
+bin/
+obj/
+*.user
+
+# باینری‌های publish‌شده که داخلِ ایمیجِ docker کپی می‌شوند (توسط 01-build.ps1 ساخته می‌شوند)
+docker/nodemanager/bin/
+
+# دیتاست‌ها و خروجی‌های موقتِ محلی (حجیم — بازتولیدشدنی)
+data/
+tmp/
+
+# خروجی‌های merge‌شدهٔ MapReduce روی میزبان
+*.mr_out.txt
+
+# نتایجِ بنچمارک را نگه می‌داریم (results/*.csv و *.md) — جزوِ تحویل‌اند.

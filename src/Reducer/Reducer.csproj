@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Reducer (و هم‌زمان Combiner) برای Hadoop Streaming.
+    مانندِ Mapper داخلِ کانتینرِ NodeManager اجرا می‌شود → netcoreapp3.1 + self-contained linux-x64.
+
+    نکتهٔ مهم: همین باینری هم به‌عنوانِ -reducer و هم به‌عنوانِ -combiner استفاده می‌شود.
+    چون مقدارِ هر خط را به‌صورت عدد می‌خواند (نه ثابتِ ۱)، جمعِ جزئیِ Combiner را هم
+    درست پردازش می‌کند (COUNT جمع‌پذیر/associative است).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Reducer</AssemblyName>
+    <RootNamespace>HadoopDotNet.Reducer</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+  </PropertyGroup>
+
+</Project>

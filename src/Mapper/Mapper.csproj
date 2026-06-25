@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Mapper برای Hadoop Streaming.
+    اجرا *داخلِ کانتینرِ NodeManager* (Debian 9 / glibc 2.24) انجام می‌شود؛
+    بنابراین TargetFramework = netcoreapp3.1 است (بالاترین .NET سازگار با این glibc).
+    publish به‌صورت self-contained linux-x64 انجام می‌شود (اسکریپتِ 01-build.ps1)
+    تا به نصبِ runtime داخلِ ایمیج نیازی نباشد.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Mapper</AssemblyName>
+    <RootNamespace>HadoopDotNet.Mapper</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <!-- هشدارِ EOL بودنِ netcoreapp3.1 را خاموش می‌کنیم (آگاهانه انتخاب شده). -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Common.csproj" />
+  </ItemGroup>
+
+</Project>
