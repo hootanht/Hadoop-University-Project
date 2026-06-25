@@ -7,7 +7,8 @@ obj/
 docker/nodemanager/bin/
 
 # دیتاست‌ها و خروجی‌های موقتِ محلی (حجیم — بازتولیدشدنی)
-data/
+# Note: big.csv exceeds GitHub LFS 2GB file size limit, excluded from repository
+data/big.csv
 tmp/
 
 # خروجی‌های merge‌شدهٔ MapReduce روی میزبان
