@@ -13,21 +13,26 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path $PSScriptRoot -Parent
+. "$PSScriptRoot\_command-tools.ps1"
 
 Write-Host "==> Merging MapReduce output to data\mr_out.txt ..." -ForegroundColor Cyan
-docker exec namenode bash -c "rm -f /data-local/mr_out.txt; hdfs dfs -getmerge $MrOut /data-local/mr_out.txt"
+Invoke-LoggedCommand "docker exec namenode bash -c \"rm -f /data-local/mr_out.txt; hdfs dfs -getmerge $MrOut /data-local/mr_out.txt\"" {
+  docker exec namenode bash -c "rm -f /data-local/mr_out.txt; hdfs dfs -getmerge $MrOut /data-local/mr_out.txt"
+}
 
 $conn = "Server=localhost,14333;User Id=sa;Password=$SaPassword;TrustServerCertificate=True;Encrypt=False"
 Write-Host "==> Running Validator (SqlBulkCopy → Dapper GROUP BY → comparison) ..." -ForegroundColor Cyan
 Push-Location $Root
 try {
+  Invoke-LoggedCommand "dotnet run --project src\Validator -c Release -- --csv data\$File --mr data\mr_out.txt --sql-conn <redacted> --reset-table --csharp-baseline --report results\validation.md" {
     dotnet run --project src\Validator -c Release -- `
-        --csv (Join-Path $Root "data\$File") `
-        --mr  (Join-Path $Root "data\mr_out.txt") `
-        --sql-conn $conn `
-        --reset-table `
-        --csharp-baseline `
-        --report (Join-Path $Root "results\validation.md")
+      --csv (Join-Path $Root "data\$File") `
+      --mr  (Join-Path $Root "data\mr_out.txt") `
+      --sql-conn $conn `
+      --reset-table `
+      --csharp-baseline `
+      --report (Join-Path $Root "results\validation.md")
+  }
     $code = $LASTEXITCODE
 } finally { Pop-Location }
 

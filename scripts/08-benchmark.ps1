@@ -15,13 +15,16 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path $PSScriptRoot -Parent
+. "$PSScriptRoot\_command-tools.ps1"
 Push-Location $Root
 try {
+  Invoke-LoggedCommand "dotnet run --project src\Benchmark -c Release -- --nodes $Nodes --splits $Splits --repeats $Repeats --input $InputPath --compose docker\docker-compose.yml --out results\results.csv --charts results\charts.md" {
     dotnet run --project src\Benchmark -c Release -- `
-        --nodes $Nodes --splits $Splits --repeats $Repeats `
-        --input $InputPath `
-        --compose (Join-Path $Root "docker\docker-compose.yml") `
-        --out (Join-Path $Root "results\results.csv") `
-        --charts (Join-Path $Root "results\charts.md")
+      --nodes $Nodes --splits $Splits --repeats $Repeats `
+      --input $InputPath `
+      --compose (Join-Path $Root "docker\docker-compose.yml") `
+      --out (Join-Path $Root "results\results.csv") `
+      --charts (Join-Path $Root "results\charts.md")
+  }
 } finally { Pop-Location }
 Write-Host "`n[OK] Results in results\results.csv and charts in results\charts.md" -ForegroundColor Green

@@ -213,6 +213,16 @@ git lfs install
 git lfs pull
 ```
 
+## Kaggle Authentication
+
+The dataset download script accepts the current Kaggle token UI in addition to legacy credentials.
+
+- `KAGGLE_API_TOKEN` or `~/.kaggle/access_token`
+- `KAGGLE_USERNAME` / `KAGGLE_KEY`
+- `~/.kaggle/kaggle.json`
+
+If you copied the token shown in the Kaggle settings dialog, set it as `KAGGLE_API_TOKEN` or save it to `~/.kaggle/access_token`.
+
 ---
 
 ## Performance Characteristics
