@@ -1,13 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    کتابخانهٔ مشترک (Shared library).
-    هدف: منطقِ «استخراج و نرمال‌سازی دسته (category)» در یک‌جا تعریف شود تا
-    هم Mapper (مسیر MapReduce) و هم Validator (مبنای تک‌رشته‌ای SQL) *دقیقاً*
-    یکسان عمل کنند. این یکسانی، پایهٔ درستیِ مقایسهٔ صحت (Correctness) است.
+    Shared library.
+    Goal: define the "category extraction and normalisation" logic in one place so that
+    both the Mapper (MapReduce path) and the Validator (single-threaded SQL baseline)
+    behave *exactly* the same way. This consistency is the foundation of the
+    correctness comparison.
 
-    netstandard2.0 انتخاب شده تا هم از netcoreapp3.1 (Mapper/Reducer) و هم از
-    net8.0 (Validator/Benchmark) قابل ارجاع باشد.
+    netstandard2.0 is chosen so the library can be referenced from both
+    netcoreapp3.1 (Mapper/Reducer) and net10.0 (Validator/Benchmark).
   -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>

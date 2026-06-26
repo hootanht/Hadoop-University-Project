@@ -9,8 +9,8 @@ using Microsoft.Data.SqlClient;
 namespace HadoopDotNet.Validator;
 
 /// <summary>
-/// نقطهٔ ورودِ صحت‌سنجی.
-/// نمونهٔ اجرا:
+/// Validation entry point.
+/// Example usage:
 ///   Validator --csv D:\...\2019-Oct.csv --mr D:\...\mr_out.txt ^
 ///             --sql-conn "Server=localhost,1433;User Id=sa;Password=...;TrustServerCertificate=True;Encrypt=False" ^
 ///             --reset-table --csharp-baseline --report results\validation.md
@@ -19,66 +19,68 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
         var opt = Options.Parse(args);
         Console.OutputEncoding = Encoding.UTF8;
 
         Console.WriteLine("==================================================================");
-        Console.WriteLine("  Validator — مقایسهٔ صحتِ MapReduce با مبنای تک‌رشته‌ایِ SQL/Dapper");
+        Console.WriteLine("  Validator — MapReduce correctness check vs single-threaded SQL/Dapper baseline");
         Console.WriteLine("==================================================================");
 
         Dictionary<string, long>? mr = null;
         Dictionary<string, long>? sql = null;
         Dictionary<string, long>? csharp = null;
 
-        // ── (۱) خروجیِ MapReduce ─────────────────────────────────────────────
+        // ── (1) MapReduce output ──────────────────────────────────────────────
         if (opt.MrPath is not null)
         {
-            Console.WriteLine($"\n[MR ] خواندنِ خروجیِ MapReduce از: {opt.MrPath}");
+            Console.WriteLine($"\n[MR ] Reading MapReduce output from: {opt.MrPath}");
             mr = ReadKeyCountFile(opt.MrPath);
-            Console.WriteLine($"[MR ] تعداد دسته‌ها = {mr.Count:N0} ، مجموعِ رکوردها = {mr.Values.Sum():N0}");
+            Console.WriteLine($"[MR ] Categories = {mr.Count:N0}, Total records = {mr.Values.Sum():N0}");
         }
 
-        // ── (۲) شمارشِ تک‌رشته‌ایِ C# (اختیاری، با همان CategoryParser) ─────────
+        // ── (2) Single-threaded C# count (optional, uses shared CategoryParser) ──
         if (opt.CSharpBaseline && opt.CsvPath is not null)
         {
-            Console.WriteLine($"\n[C#  ] شمارشِ تک‌رشته‌ای از CSV با CategoryParser مشترک …");
+            Console.WriteLine($"\n[C#  ] Single-threaded count from CSV using shared CategoryParser ...");
             var sw = Stopwatch.StartNew();
             csharp = CSharpStreamingCount(opt.CsvPath);
             sw.Stop();
-            Console.WriteLine($"[C#  ] دسته‌ها = {csharp.Count:N0} ، رکوردها = {csharp.Values.Sum():N0} ، زمان = {sw.Elapsed.TotalSeconds:F1}s");
+            Console.WriteLine($"[C#  ] Categories = {csharp.Count:N0}, Records = {csharp.Values.Sum():N0}, Time = {sw.Elapsed.TotalSeconds:F1}s");
         }
 
-        // ── (۳) مبنای SQL با Dapper ──────────────────────────────────────────
+        // ── (3) SQL baseline with Dapper ─────────────────────────────────────
         if (opt.SqlConn is not null && opt.CsvPath is not null)
         {
             sql = await RunSqlBaselineAsync(opt);
         }
         else if (opt.SqlConn is not null)
         {
-            Console.WriteLine("\n[SQL ] connection داده شد اما --csv نه؛ از بارگذاری صرفِ‌نظر شد.");
+            Console.WriteLine("\n[SQL ] Connection provided but --csv was not; skipping load.");
         }
 
-        // ── (۴) مقایسه‌ها ────────────────────────────────────────────────────
-        Console.WriteLine("\n------------------------------ نتیجهٔ مقایسه ------------------------------");
+        // ── (4) Comparisons ───────────────────────────────────────────────────
+        Console.WriteLine("\n------------------------------ Comparison Results ------------------------------");
         bool allMatch = true;
         allMatch &= Compare("MapReduce", mr, "SQL/Dapper", sql);
-        allMatch &= Compare("MapReduce", mr, "C#-تک‌رشته‌ای", csharp);
-        allMatch &= Compare("SQL/Dapper", sql, "C#-تک‌رشته‌ای", csharp);
+        allMatch &= Compare("MapReduce", mr, "C#-SingleThread", csharp);
+        allMatch &= Compare("SQL/Dapper", sql, "C#-SingleThread", csharp);
 
-        // گزارشِ مارک‌داون (برای REPORT)
+        // Markdown report (for REPORT)
         if (opt.ReportPath is not null)
         {
             WriteMarkdownReport(opt.ReportPath, mr, sql, csharp);
-            Console.WriteLine($"\n[DOC ] گزارشِ صحت‌سنجی نوشته شد: {opt.ReportPath}");
+            Console.WriteLine($"\n[DOC ] Validation report written: {opt.ReportPath}");
         }
 
         Console.WriteLine("\n==================================================================");
         if (allMatch)
         {
-            Console.WriteLine("  ✓ نتیجه: همهٔ مبناهای موجود کاملاً یکسان‌اند (Correctness تأیید شد).");
+            Console.WriteLine("  ✓ Result: All available baselines match exactly (Correctness verified).");
             return 0;
         }
-        Console.WriteLine("  ✗ نتیجه: اختلاف پیدا شد — جزئیات بالا. ExitCode=1");
+        Console.WriteLine("  ✗ Result: Discrepancy found — see details above. ExitCode=1");
         return 1;
     }
 
@@ -89,7 +91,7 @@ internal static class Program
         const string dbName = "validation";
         const string table = "dbo.events";
 
-        // (الف) ساختِ پایگاه‌داده در صورتِ نبود.
+        // (a) Create database if it does not exist.
         var masterCsb = new SqlConnectionStringBuilder(opt.SqlConn!) { InitialCatalog = "master" };
         await using (var master = new SqlConnection(masterCsb.ConnectionString))
         {
@@ -102,7 +104,7 @@ internal static class Program
         await using var conn = new SqlConnection(dbCsb.ConnectionString);
         await conn.OpenAsync();
 
-        // (ب) جدول.
+        // (b) Table.
         if (opt.ResetTable)
             await conn.ExecuteAsync($"IF OBJECT_ID(N'{table}') IS NOT NULL DROP TABLE {table};");
         await conn.ExecuteAsync(
@@ -111,25 +113,25 @@ internal static class Program
         long existing = await conn.ExecuteScalarAsync<long>($"SELECT COUNT_BIG(*) FROM {table};");
         if (existing > 0 && !opt.ResetTable)
         {
-            Console.WriteLine($"\n[SQL ] جدول از قبل {existing:N0} رکورد دارد؛ از بارگذاریِ مجدد صرف‌نظر شد (برای بارگذاریِ تازه از --reset-table استفاده کنید).");
+            Console.WriteLine($"\n[SQL ] Table already has {existing:N0} rows; skipping reload (use --reset-table to reload).");
         }
         else
         {
-            Console.WriteLine($"\n[SQL ] بارگذاریِ category از CSV به {table} با SqlBulkCopy …");
+            Console.WriteLine($"\n[SQL ] Loading category column from CSV into {table} via SqlBulkCopy ...");
             var swLoad = Stopwatch.StartNew();
             long rows = await BulkLoadAsync(dbCsb.ConnectionString, table, opt.CsvPath!);
             swLoad.Stop();
-            Console.WriteLine($"[SQL ] {rows:N0} رکورد در {swLoad.Elapsed.TotalSeconds:F1}s بارگذاری شد " +
-                              $"({rows / Math.Max(1, swLoad.Elapsed.TotalSeconds):N0} ردیف/ثانیه).");
+            Console.WriteLine($"[SQL ] {rows:N0} rows loaded in {swLoad.Elapsed.TotalSeconds:F1}s " +
+                              $"({rows / Math.Max(1, swLoad.Elapsed.TotalSeconds):N0} rows/sec).");
         }
 
-        // (ج) کوئریِ مبنا — دقیقاً معادلِ SELECT category, COUNT(*) GROUP BY category،
-        //     تک‌رشته‌ای (MAXDOP 1) تا «حالتِ تک‌هسته‌ای» باشد، اجرا با Dapper.
+        // (c) Baseline query — equivalent to SELECT category, COUNT(*) GROUP BY category,
+        //     single-threaded (MAXDOP 1) to simulate single-core mode, executed with Dapper.
         const string groupBySql =
             "SELECT category AS Category, COUNT_BIG(*) AS Cnt " +
             "FROM dbo.events GROUP BY category OPTION (MAXDOP 1);";
 
-        Console.WriteLine("[SQL ] اجرای GROUP BY تک‌رشته‌ای با Dapper …");
+        Console.WriteLine("[SQL ] Running single-threaded GROUP BY with Dapper ...");
         var swQ = Stopwatch.StartNew();
         var rowsResult = (await conn.QueryAsync<CatCount>(new CommandDefinition(groupBySql, commandTimeout: 0))).ToList();
         swQ.Stop();
@@ -138,11 +140,11 @@ internal static class Program
         foreach (var r in rowsResult)
             dict[r.Category] = r.Cnt;
 
-        Console.WriteLine($"[SQL ] دسته‌ها = {dict.Count:N0} ، رکوردها = {dict.Values.Sum():N0} ، زمانِ کوئری = {swQ.Elapsed.TotalSeconds:F2}s");
+        Console.WriteLine($"[SQL ] Categories = {dict.Count:N0}, Records = {dict.Values.Sum():N0}, Query time = {swQ.Elapsed.TotalSeconds:F2}s");
         return dict;
     }
 
-    /// <summary>بارگذاریِ استریمیِ ستونِ category با SqlBulkCopy (کم‌حافظه).</summary>
+    /// <summary>Streaming load of the category column via SqlBulkCopy (low memory).</summary>
     private static async Task<long> BulkLoadAsync(string connString, string table, string csvPath)
     {
         await using var conn = new SqlConnection(connString);
@@ -163,7 +165,7 @@ internal static class Program
 
     private sealed record CatCount(string Category, long Cnt);
 
-    // ─────────────────────────── شمارشِ C# و فایلِ MR ───────────────────────
+    // ─────────────────────────── C# count and MR file ────────────────────────
 
     private static Dictionary<string, long> CSharpStreamingCount(string csvPath)
     {
@@ -180,7 +182,7 @@ internal static class Program
         return dict;
     }
 
-    /// <summary>خواندنِ خروجیِ «key&lt;TAB&gt;count» از یک فایل یا یک پوشه (part-*).</summary>
+    /// <summary>Reads "key&lt;TAB&gt;count" output from a file or a directory (part-*).</summary>
     private static Dictionary<string, long> ReadKeyCountFile(string path)
     {
         var dict = new Dictionary<string, long>(StringComparer.Ordinal);
@@ -207,11 +209,11 @@ internal static class Program
         return dict;
     }
 
-    // ───────────────────────────── مقایسه و گزارش ───────────────────────────
+    // ───────────────────────────── Compare and report ──────────────────────────
 
     private static bool Compare(string nameA, Dictionary<string, long>? a, string nameB, Dictionary<string, long>? b)
     {
-        if (a is null || b is null) return true; // یکی موجود نیست → از این مقایسه عبور
+        if (a is null || b is null) return true; // one is absent → skip this comparison
 
         var keys = new HashSet<string>(a.Keys, StringComparer.Ordinal);
         keys.UnionWith(b.Keys);
@@ -225,15 +227,15 @@ internal static class Program
             if (va != vb)
             {
                 if (diffs < 20)
-                    Console.WriteLine($"   ✗ اختلاف در «{k}»: {nameA}={va:N0} ، {nameB}={vb:N0}");
+                    Console.WriteLine($"   ✗ Mismatch in '{k}': {nameA}={va:N0}, {nameB}={vb:N0}");
                 diffs++;
             }
         }
 
         if (diffs == 0)
-            Console.WriteLine($"✓ {nameA} == {nameB}  (دسته‌ها={a.Count:N0}, مجموع={sumA:N0})");
+            Console.WriteLine($"✓ {nameA} == {nameB}  (categories={a.Count:N0}, total={sumA:N0})");
         else
-            Console.WriteLine($"✗ {nameA} vs {nameB}: {diffs:N0} اختلاف ؛ مجموع‌ها: {nameA}={sumA:N0} ، {nameB}={sumB:N0}");
+            Console.WriteLine($"✗ {nameA} vs {nameB}: {diffs:N0} mismatches; totals: {nameA}={sumA:N0}, {nameB}={sumB:N0}");
         return diffs == 0;
     }
 
@@ -244,15 +246,15 @@ internal static class Program
         if (primary is null) return;
 
         var sb = new StringBuilder();
-        sb.AppendLine("# نتیجهٔ صحت‌سنجی (Validation)\n");
-        sb.AppendLine($"- تعدادِ دسته‌ها: **{primary.Count:N0}**");
-        sb.AppendLine($"- مجموعِ کلِ رکوردها: **{primary.Values.Sum():N0}**");
+        sb.AppendLine("# Validation Result\n");
+        sb.AppendLine($"- Number of categories: **{primary.Count:N0}**");
+        sb.AppendLine($"- Total records: **{primary.Values.Sum():N0}**");
         bool m1 = mr is not null && sql is not null && DictEquals(mr, sql);
         bool m2 = mr is not null && csharp is not null && DictEquals(mr, csharp);
-        if (mr is not null && sql is not null) sb.AppendLine($"- تطابقِ MapReduce == SQL/Dapper: **{(m1 ? "✓ بله" : "✗ خیر")}**");
-        if (mr is not null && csharp is not null) sb.AppendLine($"- تطابقِ MapReduce == C#: **{(m2 ? "✓ بله" : "✗ خیر")}**");
-        sb.AppendLine("\n## ۲۰ دستهٔ پرتکرار\n");
-        sb.AppendLine("| دسته (category_code) | تعداد |");
+        if (mr is not null && sql is not null) sb.AppendLine($"- MapReduce == SQL/Dapper match: **{(m1 ? "✓ Yes" : "✗ No")}**");
+        if (mr is not null && csharp is not null) sb.AppendLine($"- MapReduce == C# match: **{(m2 ? "✓ Yes" : "✗ No")}**");
+        sb.AppendLine("\n## Top 20 Categories\n");
+        sb.AppendLine("| Category (category_code) | Count |");
         sb.AppendLine("|---|---:|");
         foreach (var kv in primary.OrderByDescending(k => k.Value).Take(20))
             sb.AppendLine($"| `{kv.Key}` | {kv.Value:N0} |");
@@ -269,7 +271,7 @@ internal static class Program
         return true;
     }
 
-    // ───────────────────────────── آرگومان‌ها ──────────────────────────────
+    // ───────────────────────────── Arguments ───────────────────────────────
 
     private sealed class Options
     {
@@ -293,7 +295,7 @@ internal static class Program
                     case "--reset-table": o.ResetTable = true; break;
                     case "--csharp-baseline": o.CSharpBaseline = true; break;
                     case "--report": o.ReportPath = a[++i]; break;
-                    default: Console.Error.WriteLine($"آرگومانِ ناشناخته: {a[i]}"); break;
+                    default: Console.Error.WriteLine($"Unknown argument: {a[i]}"); break;
                 }
             }
             return o;
@@ -302,9 +304,9 @@ internal static class Program
 }
 
 /// <summary>
-/// یک IDataReader سبک که فقط ستونِ «category» را به‌صورتِ استریمی از CSV
-/// به SqlBulkCopy می‌دهد (بدون نگه‌داشتنِ کلِ فایل در حافظه).
-/// از همان CategoryParser مشترک استفاده می‌کند تا با Mapper یکی باشد.
+/// A lightweight IDataReader that streams only the 'category' column from CSV
+/// to SqlBulkCopy (without holding the entire file in memory).
+/// Uses the same shared CategoryParser as the Mapper for consistency.
 /// </summary>
 internal sealed class CategoryCsvDataReader : IDataReader
 {
@@ -346,7 +348,7 @@ internal sealed class CategoryCsvDataReader : IDataReader
     public bool IsClosed => false;
     public int RecordsAffected => -1;
 
-    // اعضای استفاده‌نشدهٔ IDataReader (SqlBulkCopy فقط به موارد بالا نیاز دارد).
+    // Unused IDataReader members (SqlBulkCopy only needs the ones above).
     public bool GetBoolean(int i) => throw new NotSupportedException();
     public byte GetByte(int i) => throw new NotSupportedException();
     public long GetBytes(int i, long o, byte[]? b, int bo, int len) => throw new NotSupportedException();

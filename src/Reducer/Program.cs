@@ -5,16 +5,17 @@ using System.Text;
 namespace HadoopDotNet.Reducer
 {
     /// <summary>
-    /// فازِ Reduce (و Combine) در Hadoop Streaming.
+    /// Reduce (and Combine) phase in Hadoop Streaming.
     ///
-    /// ورودی: خطوطِ «key<TAB>value» که Hadoop آن‌ها را *مرتب‌شده بر اساس key* تحویل می‌دهد
-    /// (شرطِ کلیدیِ قراردادِ streaming). بنابراین کافی است تا وقتی key ثابت است value ها
-    /// را جمع بزنیم و در لحظهٔ تغییرِ key، نتیجهٔ گروهِ قبلی را چاپ کنیم.
+    /// Input: lines of "key<TAB>value" delivered by Hadoop *sorted by key*
+    /// (the key contract of the streaming protocol). It is therefore sufficient
+    /// to accumulate values while the key stays the same and emit the previous
+    /// group's result the moment the key changes.
     ///
-    /// چون value را به‌صورت عدد می‌خوانیم، این برنامه هم برای Reduce (value=۱ یا جمعِ جزئی)
-    /// و هم برای Combine کار می‌کند.
+    /// Because values are read as numbers, this program works both as a Reducer
+    /// (value=1 or partial sum) and as a Combiner.
     ///
-    /// خروجی: category<TAB>count
+    /// Output: category<TAB>count
     /// </summary>
     internal static class Program
     {
@@ -36,31 +37,31 @@ namespace HadoopDotNet.Reducer
                 {
                     int tab = line.IndexOf('\t');
                     if (tab < 0)
-                        continue; // خطِ بدشکل
+                        continue; // malformed line
 
                     long value = ParseLong(line, tab + 1);
 
                     if (currentKey == null)
                     {
-                        // اولین گروه
+                        // First group
                         currentKey = line.Substring(0, tab);
                         currentCount = value;
                     }
                     else if (SameKey(line, tab, currentKey))
                     {
-                        // همان گروه → جمع
+                        // Same group → accumulate
                         currentCount += value;
                     }
                     else
                     {
-                        // گروه عوض شد → نتیجهٔ گروهِ قبل را چاپ کن
+                        // Group changed → emit previous group
                         Emit(writer, currentKey, currentCount);
                         currentKey = line.Substring(0, tab);
                         currentCount = value;
                     }
                 }
 
-                // آخرین گروه
+                // Last group
                 if (currentKey != null)
                     Emit(writer, currentKey, currentCount);
 
@@ -77,7 +78,7 @@ namespace HadoopDotNet.Reducer
             writer.Write('\n');
         }
 
-        /// <summary>مقایسهٔ key خطِ جاری با key گروهِ فعلی، بدونِ allocation اضافه.</summary>
+        /// <summary>Compare the current line's key with the current group key, without extra allocation.</summary>
         private static bool SameKey(string line, int tab, string key)
         {
             if (key.Length != tab)
@@ -88,7 +89,7 @@ namespace HadoopDotNet.Reducer
             return true;
         }
 
-        /// <summary>پارسِ عددِ صحیح از موقعیتِ start تا اولین کاراکترِ غیرعددی، بدونِ Substring.</summary>
+        /// <summary>Parse an integer from position start to the first non-digit character, without Substring.</summary>
         private static long ParseLong(string s, int start)
         {
             long v = 0;

@@ -1,11 +1,6 @@
 <#
-  08-benchmark.ps1 — Main project section: benchmark matrix.
-  Runs Benchmark (.NET project) which:
-    • For each node count in {1,5,10}, scales the cluster,
-    • For each split size in {64,128,256}MB, runs job N times and measures Wall-clock with Stopwatch,
-    • Writes results\results.csv and Mermaid charts to results\charts.md.
-  Recommendation: Before running, stop Hive and SQL Server to free RAM for 10 nodes:
-    docker compose -f docker\docker-compose.yml stop hive-server hive-metastore hive-metastore-postgresql sqlserver
+  08-benchmark.ps1 — Automated Benchmarking across multiple scales.
+  Optimized: Protects cluster stability during dynamic node scaling.
 #>
 param(
   [string]$Nodes = "1,5,10",
@@ -16,6 +11,30 @@ param(
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path $PSScriptRoot -Parent
 . "$PSScriptRoot\_command-tools.ps1"
+
+# AUTOMATED TUNING LAYER: Synchronizes high-density config slots before scaling begins
+Write-Host "==> Ensuring high-concurrency slot tuning is applied for benchmark matrix..." -ForegroundColor Yellow
+$envFile = Join-Path $Root "docker\hadoop-hive.env"
+if (Test-Path $envFile) {
+  $content = Get-Content $envFile
+  $optimizedSettings = @(
+    "YARN_NODEMANAGER_RESOURCE_MEMORY_MB=3072",
+    "YARN_NODEMANAGER_RESOURCE_CPU_VCORES=6",
+    "YARN_SCHEDULER_MINIMUM_ALLOCATION_MB=256",
+    "YARN_SCHEDULER_MAXIMUM_ALLOCATION_MB=3072",
+    "MAPREDUCE_MAP_MEMORY_MB=512",
+    "MAPREDUCE_MAP_JAVA_OPTS=-Xmx400m",
+    "MAPREDUCE_REDUCE_MEMORY_MB=512",
+    "MAPREDUCE_REDUCE_JAVA_OPTS=-Xmx400m",
+    "YARN_APP_MAPREDUCE_AM_RESOURCE_MB=512",
+    "YARN_APP_MAPREDUCE_AM_COMMAND_OPTS=-Xmx400m"
+  )
+  $filteredContent = $content | Where-Object {
+    $_ -notmatch "^(YARN_NODEMANAGER_RESOURCE_MEMORY_MB|YARN_NODEMANAGER_RESOURCE_CPU_VCORES|YARN_SCHEDULER_MINIMUM_ALLOCATION_MB|YARN_SCHEDULER_MAXIMUM_ALLOCATION_MB|MAPREDUCE_MAP_MEMORY_MB|MAPREDUCE_MAP_JAVA_OPTS|MAPREDUCE_REDUCE_MEMORY_MB|MAPREDUCE_REDUCE_JAVA_OPTS|YARN_APP_MAPREDUCE_AM_RESOURCE_MB|YARN_APP_MAPREDUCE_AM_COMMAND_OPTS)="
+  }
+  $filteredContent + $optimizedSettings | Set-Content $envFile -Force
+}
+
 Push-Location $Root
 try {
   Invoke-LoggedCommand "dotnet run --project src\Benchmark -c Release -- --nodes $Nodes --splits $Splits --repeats $Repeats --input $InputPath --compose docker\docker-compose.yml --out results\results.csv --charts results\charts.md" {

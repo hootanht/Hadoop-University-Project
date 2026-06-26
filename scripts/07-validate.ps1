@@ -16,8 +16,12 @@ $Root = Split-Path $PSScriptRoot -Parent
 . "$PSScriptRoot\_command-tools.ps1"
 
 Write-Host "==> Merging MapReduce output to data\mr_out.txt ..." -ForegroundColor Cyan
-Invoke-LoggedCommand "docker exec namenode bash -c \"rm -f /data-local/mr_out.txt; hdfs dfs -getmerge $MrOut /data-local/mr_out.txt\"" {
-    docker exec namenode bash -c "rm -f /data-local/mr_out.txt; hdfs dfs -getmerge $MrOut /data-local/mr_out.txt"
+# Replaced composite string logic with isolated native calls to avoid transformation failures
+Invoke-LoggedCommand "docker exec namenode rm -f /data-local/mr_out.txt" {
+    docker exec namenode rm -f /data-local/mr_out.txt
+}
+Invoke-LoggedCommand "docker exec namenode hdfs dfs -getmerge $MrOut /data-local/mr_out.txt" {
+    docker exec namenode hdfs dfs -getmerge $MrOut /data-local/mr_out.txt
 }
 
 $conn = "Server=localhost,14333;User Id=sa;Password=$SaPassword;TrustServerCertificate=True;Encrypt=False"

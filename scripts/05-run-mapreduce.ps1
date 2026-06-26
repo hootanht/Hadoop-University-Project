@@ -18,8 +18,10 @@ $bytes = $SplitMB * 1024 * 1024
 $jar = "/opt/hadoop-2.7.4/share/hadoop/tools/lib/hadoop-streaming-2.7.4.jar"
 . "$PSScriptRoot\_command-tools.ps1"
 
-Invoke-LoggedCommand "docker exec namenode bash -c \"hdfs dfs -rm -r -skipTrash $Out 2>/dev/null || true\"" {
-  docker exec namenode bash -c "hdfs dfs -rm -r -skipTrash $Out 2>/dev/null || true" | Out-Null
+# Cleaned up to use native HDFS -f flag, avoiding Windows path errors
+Write-Host "==> Cleaning up previous output directory..." -ForegroundColor Cyan
+Invoke-LoggedCommand "docker exec namenode hdfs dfs -rm -r -f -skipTrash $Out" {
+  docker exec namenode hdfs dfs -rm -r -f -skipTrash $Out
 }
 
 # One-line command (without backtick) — same tested Streaming command.
@@ -35,16 +37,23 @@ $cmd = "hadoop jar $jar" +
 
 Write-Host "==> Running Streaming (split=$SplitMB MB, reduces=$Reduces) ..." -ForegroundColor Cyan
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-Invoke-LoggedCommand "docker exec namenode bash -c <streaming command>" { docker exec namenode bash -c $cmd }
+# Wrapped $cmd in quotes so bash executes the entire command string safely
+Invoke-LoggedCommand "docker exec namenode bash -c `"$cmd`"" { docker exec namenode bash -c "$cmd" }
 $code = $LASTEXITCODE
 $sw.Stop()
 Write-Host ("`n>>> Wall-clock: {0:N1} seconds (exit={1})" -f $sw.Elapsed.TotalSeconds, $code) -ForegroundColor Green
 if ($code) { throw "streaming job failed" }
 
 Write-Host "==> Merging output to data\mr_out.txt ..."
-Invoke-LoggedCommand "docker exec namenode bash -c \"rm -f /data-local/mr_out.txt; hdfs dfs -getmerge $Out /data-local/mr_out.txt\"" {
-  docker exec namenode bash -c "rm -f /data-local/mr_out.txt; hdfs dfs -getmerge $Out /data-local/mr_out.txt"
+# Separated commands to prevent PowerShell from misinterpreting internal string quotes
+Invoke-LoggedCommand "docker exec namenode rm -f /data-local/mr_out.txt" {
+  docker exec namenode rm -f /data-local/mr_out.txt
 }
+Invoke-LoggedCommand "docker exec namenode hdfs dfs -getmerge $Out /data-local/mr_out.txt" {
+  docker exec namenode hdfs dfs -getmerge $Out /data-local/mr_out.txt
+}
+
 Write-Host "--- Top 20 frequent categories ---"
-Write-CommandLine "docker exec namenode bash -c \"sort -t '<TAB>' -k2 -nr /data-local/mr_out.txt | head -20\""
-docker exec namenode bash -c "sort -t '	' -k2 -nr /data-local/mr_out.txt | head -20"
+Invoke-LoggedCommand "docker exec namenode bash -c `"sort -t ' ' -k2 -nr /data-local/mr_out.txt | head -20`"" {
+  docker exec namenode bash -c "sort -t ' ' -k2 -nr /data-local/mr_out.txt | head -20"
+}

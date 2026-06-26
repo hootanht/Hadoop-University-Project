@@ -6,28 +6,38 @@
 
 DROP TABLE IF EXISTS events;
 
--- جدولِ EXTERNAL روی همان پوشهٔ HDFS که داده را در آن put کردیم.
+-- استفاده از تک‌کوت (') برای مقادیر متنی جهت عملکرد صحیح تنظیمات دایرکتوری در هایو
 CREATE EXTERNAL TABLE events (
   event_time    STRING,
   event_type    STRING,
-  product_id    BIGINT,
-  category_id   BIGINT,
+  product_id    STRING,
+  category_id   STRING,
   category_code STRING,
   brand         STRING,
-  price         DOUBLE,
-  user_id       BIGINT,
+  price         STRING,
+  user_id       STRING,
   user_session  STRING
 )
-ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
-STORED AS TEXTFILE
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+WITH SERDEPROPERTIES (
+   'separatorChar' = ',',
+   'quoteChar'     = '\"'
+)
 LOCATION '/data/ecommerce'
 TBLPROPERTIES ('skip.header.line.count'='1');
 
--- SELECT category, COUNT(*) ... GROUP BY category
--- نرمال‌سازیِ مقدارِ خالی به «(unknown)» — دقیقاً مثلِ Mapper و Validator.
-SELECT
-  CASE WHEN category_code IS NULL OR category_code = '' THEN '(unknown)' ELSE category_code END AS category,
-  COUNT(*) AS cnt
-FROM events
-GROUP BY CASE WHEN category_code IS NULL OR category_code = '' THEN '(unknown)' ELSE category_code END
+-- دسته‌بندی یکپارچه با Subquery برای تجمیع کامل مقادیر خالی به یک ردیف single '(unknown)'
+SELECT 
+    t.category, 
+    COUNT(*) AS cnt
+FROM (
+    SELECT 
+        CASE 
+            WHEN category_code IS NULL OR category_code = '' OR category_code = 'null' 
+            THEN '(unknown)' 
+            ELSE category_code 
+        END AS category
+    FROM events
+) t
+GROUP BY t.category
 ORDER BY cnt DESC;

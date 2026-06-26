@@ -6,23 +6,23 @@ using HadoopDotNet.Common;
 namespace HadoopDotNet.Mapper
 {
     /// <summary>
-    /// فازِ Map در Hadoop Streaming.
+    /// Map phase in Hadoop Streaming.
     ///
-    /// قرارداد: هر خطِ ورودی از stdin خوانده می‌شود و برای هر رکوردِ معتبر،
-    /// یک جفتِ «key<TAB>value» به stdout نوشته می‌شود:
+    /// Contract: each input line is read from stdin and for every valid record
+    /// a "key<TAB>value" pair is written to stdout:
     ///     category \t 1
-    /// مقدارِ ۱ یعنی «یک بار دیده شد». جمع‌بستن در Reducer/Combiner انجام می‌شود.
+    /// The value 1 means "seen once". Summing is done in the Reducer/Combiner.
     ///
-    /// این دقیقاً معادلِ SELECT category, COUNT(*) ... GROUP BY category است:
-    /// Map = ساختنِ کلیدِ گروه‌بندی، Reduce = COUNT روی هر گروه.
+    /// This is exactly equivalent to SELECT category, COUNT(*) ... GROUP BY category:
+    /// Map = build the grouping key, Reduce = COUNT per group.
     /// </summary>
     internal static class Program
     {
-        private const int BufferSize = 1 << 20; // 1MB I/O buffer برای کارایی روی ورودیِ حجیم
+        private const int BufferSize = 1 << 20; // 1MB I/O buffer for performance on large input
 
         private static int Main()
         {
-            // stdin/stdout خام؛ UTF-8 بدون BOM؛ بافرِ بزرگ.
+            // Raw stdin/stdout; UTF-8 without BOM; large buffer.
             var stdin = Console.OpenStandardInput();
             var stdout = Console.OpenStandardOutput();
 
@@ -34,9 +34,9 @@ namespace HadoopDotNet.Mapper
                 {
                     string category = CategoryParser.TryGetCategory(line);
                     if (category == null)
-                        continue; // خطِ هدر/خالی/ناقص
+                        continue; // header / empty / incomplete line
 
-                    // خروجی: category \t 1 \n
+                    // Output: category \t 1 \n
                     writer.Write(category);
                     writer.Write('\t');
                     writer.Write('1');

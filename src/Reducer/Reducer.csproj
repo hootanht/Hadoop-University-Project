@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Reducer (و هم‌زمان Combiner) برای Hadoop Streaming.
-    مانندِ Mapper داخلِ کانتینرِ NodeManager اجرا می‌شود → netcoreapp3.1 + self-contained linux-x64.
+    Reducer (and Combiner) for Hadoop Streaming.
+    Like the Mapper, runs inside the NodeManager container → netcoreapp3.1 + self-contained linux-x64.
 
-    نکتهٔ مهم: همین باینری هم به‌عنوانِ -reducer و هم به‌عنوانِ -combiner استفاده می‌شود.
-    چون مقدارِ هر خط را به‌صورت عدد می‌خواند (نه ثابتِ ۱)، جمعِ جزئیِ Combiner را هم
-    درست پردازش می‌کند (COUNT جمع‌پذیر/associative است).
+    Important: the same binary is used as both -reducer and -combiner.
+    Because it reads each line's value as a number (not a constant 1), it correctly
+    handles the Combiner's partial sums (COUNT is associative/summable).
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

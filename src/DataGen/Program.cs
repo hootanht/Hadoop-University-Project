@@ -5,16 +5,16 @@ using System.Text;
 namespace HadoopDotNet.DataGen;
 
 /// <summary>
-/// تولیدِ CSV هم‌شکل با دیتاستِ
-/// mkechinov/ecommerce-behavior-data-from-multi-category-store.
-/// نمونهٔ اجرا:
+/// Generates CSV data matching the format of the
+/// mkechinov/ecommerce-behavior-data-from-multi-category-store dataset.
+/// Example usage:
 ///   DataGen --out sample.csv --size-mb 50
 ///   DataGen --out big.csv    --size-gb 5
 /// </summary>
 internal static class Program
 {
-    // فهرستِ دسته‌ها (category_code) با وزن‌های نسبی — شبیهِ توزیعِ واقعی.
-    // وزنِ آخر (رشتهٔ خالی) سهمِ رکوردهای بدونِ دسته را می‌سازد → در شمارش به «(unknown)» می‌رود.
+    // List of categories (category_code) with relative weights — approximating the real distribution.
+    // The last weight (empty string) represents records without a category → counted as "(unknown)".
     private static readonly (string Code, int Weight)[] Categories =
     {
         ("electronics.smartphone", 220),
@@ -34,7 +34,7 @@ internal static class Program
         ("auto.accessories.player", 22),
         ("sport.bicycle", 15),
         ("construction.tools.light", 12),
-        ("", 130), // بدونِ category_code → (unknown)
+        ("", 130), // no category_code → (unknown)
     };
 
     private static readonly string[] EventTypes = { "view", "view", "view", "cart", "purchase" };
@@ -55,22 +55,22 @@ internal static class Program
                 case "--out": outPath = args[++i]; break;
                 case "--size-mb": targetBytes = long.Parse(args[++i]) * 1024L * 1024L; break;
                 case "--size-gb": targetBytes = (long)(double.Parse(args[++i], CultureInfo.InvariantCulture) * 1024 * 1024 * 1024); break;
-                case "--rows": targetBytes = -long.Parse(args[++i]); break; // منفی = حالتِ تعدادِ ردیف
+                case "--rows": targetBytes = -long.Parse(args[++i]); break; // negative = row-count mode
             }
         }
         if (outPath is null || targetBytes == 0)
         {
-            Console.Error.WriteLine("استفاده: DataGen --out <path> (--size-mb N | --size-gb N | --rows N)");
+            Console.Error.WriteLine("Usage: DataGen --out <path> (--size-mb N | --size-gb N | --rows N)");
             return 2;
         }
 
-        // جدولِ تجمعیِ وزن‌ها برای انتخابِ سریعِ دسته.
+        // Cumulative weight table for fast category selection.
         int totalWeight = Categories.Sum(c => c.Weight);
         var cumulative = new int[Categories.Length];
         int acc = 0;
         for (int i = 0; i < Categories.Length; i++) { acc += Categories[i].Weight; cumulative[i] = acc; }
 
-        var rng = new Random(12345); // seed ثابت → تکرارپذیری
+        var rng = new Random(12345); // fixed seed → reproducibility
         var sw = Stopwatch.StartNew();
         long rows = 0;
         bool rowMode = targetBytes < 0;
@@ -113,15 +113,15 @@ internal static class Program
                 rows++;
                 if ((rows & 0xFFFFF) == 0 && !rowMode)
                 {
-                    // گزارشِ پیشرفت تقریبی
-                    Console.Write($"\r  … {fs.Position / (1024.0 * 1024.0):F0} MB / {targetBytes / (1024.0 * 1024.0):F0} MB");
+                    // Approximate progress report
+                    Console.Write($"\r  ... {fs.Position / (1024.0 * 1024.0):F0} MB / {targetBytes / (1024.0 * 1024.0):F0} MB");
                 }
             }
         }
         sw.Stop();
         var info = new FileInfo(outPath);
-        Console.WriteLine($"\n✓ ساخته شد: {outPath}");
-        Console.WriteLine($"  ردیف‌ها = {rows:N0} ، حجم = {info.Length / (1024.0 * 1024.0):F1} MB ، زمان = {sw.Elapsed.TotalSeconds:F1}s");
+        Console.WriteLine($"\n✓ Created: {outPath}");
+        Console.WriteLine($"  Rows = {rows:N0}, Size = {info.Length / (1024.0 * 1024.0):F1} MB, Time = {sw.Elapsed.TotalSeconds:F1}s");
         return 0;
     }
 
@@ -135,7 +135,7 @@ internal static class Program
 
     private static void AppendSession(StringBuilder sb, Random rng)
     {
-        // شبه-UUID (برای حجم و شکلِ واقع‌گرایانه؛ تصادفی‌بودنِ دقیقش مهم نیست).
+        // Pseudo-UUID (realistic shape and size; exact randomness doesn't matter).
         const string hex = "0123456789abcdef";
         for (int i = 0; i < 8; i++) sb.Append(hex[rng.Next(16)]);
         sb.Append('-');

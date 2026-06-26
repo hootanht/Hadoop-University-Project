@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Validator: مبنای صحت‌سنجی (Correctness).
-    روی *میزبان* اجرا می‌شود (نه داخلِ کانتینر) → net8.0.
-    وظیفه:
-      ۱) دادهٔ category را به SQL Server بارگذاری کند (SqlBulkCopy)،
-      ۲) کوئریِ GROUP BY را به‌صورتِ تک‌رشته‌ای با Dapper اجرا کند (مبنای SQL)،
-      ۳) خروجیِ MapReduce را بخواند،
-      ۴) این دو (و در صورت نیاز یک شمارشِ تک‌رشته‌ایِ C#) را مقایسه و گزارش کند.
+    Validator: correctness baseline.
+    Runs on the *host* (not inside a container) → net10.0.
+    Responsibilities:
+      1) Load category data into SQL Server (SqlBulkCopy),
+      2) Run a single-threaded GROUP BY query with Dapper (SQL baseline),
+      3) Read the MapReduce output,
+      4) Compare the two (and optionally a single-threaded C# count) and report.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -17,7 +17,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Validator</AssemblyName>
     <RootNamespace>HadoopDotNet.Validator</RootNamespace>
-    <!-- InvariantGlobalization عمداً تنظیم نشده: Microsoft.Data.SqlClient آن را پشتیبانی نمی‌کند. -->
+    <!-- InvariantGlobalization intentionally not set: Microsoft.Data.SqlClient does not support it. -->
   </PropertyGroup>
 
   <ItemGroup>

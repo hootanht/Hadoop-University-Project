@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace HadoopDotNet.Benchmark;
 
 /// <summary>
-/// ارکستراتورِ بنچمارک. نمونهٔ اجرا:
+/// Benchmark orchestrator. Example usage:
 ///   Benchmark --nodes 1,5,10 --splits 64,128,256 --repeats 3 \
 ///             --input /data/ecommerce/2019-Oct.csv --out results\results.csv
 /// </summary>
@@ -18,6 +18,8 @@ internal static class Program
 
     private static async Task<int> Main(string[] args)
     {
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
         Console.OutputEncoding = Encoding.UTF8;
         var o = Options.Parse(args);
 
@@ -27,15 +29,15 @@ internal static class Program
 
         var results = new List<Result>();
 
-        // گره‌ها را صعودی پیمایش می‌کنیم (scale-up) تا گره‌های LOST سر-و-صدا نسازند.
+        // Traverse nodes ascending (scale-up) so LOST nodes don't cause noise.
         foreach (int n in o.Nodes.OrderBy(x => x))
         {
-            Console.WriteLine($"\n########## مقیاسِ کلاستر به {n} عددNodeManager ##########");
+            Console.WriteLine($"\n########## Scaling cluster to {n} NodeManager(s) ##########");
             if (!o.SkipScale)
             {
                 Scale(o.ComposeFile, n, o.Datanodes);
                 int active = await WaitForNodesAsync(n, TimeSpan.FromSeconds(180));
-                Console.WriteLine($"  NodeManagerهای فعال طبق YARN: {active}/{n}");
+                Console.WriteLine($"  Active NodeManagers per YARN: {active}/{n}");
             }
 
             foreach (int splitMb in o.Splits)
@@ -53,11 +55,11 @@ internal static class Program
         }
 
         WriteCharts(o.ChartsMd, results, o);
-        Console.WriteLine($"\n✓ نتایج: {o.OutCsv}\n✓ نمودارها: {o.ChartsMd}");
+        Console.WriteLine($"\n✓ Results: {o.OutCsv}\n✓ Charts: {o.ChartsMd}");
         return results.All(r => r.Exit == 0) ? 0 : 1;
     }
 
-    // ─────────────────────────── یک اجرای منفرد ────────────────────────────
+    // ─────────────────────────── Single run ────────────────────────────────
 
     private static async Task<Result> RunOnceAsync(Options o, int nodes, int splitMb, int run)
     {
@@ -66,7 +68,7 @@ internal static class Program
         string jobName = $"bench_n{nodes}_s{splitMb}_r{run}_{seq}";
         string outDir = $"{o.OutBase}/{jobName}";
 
-        // فرمانِ Hadoop Streaming با باینری‌های .NET (که در ایمیجِ nodemanager بِیک شده‌اند).
+        // Hadoop Streaming command using .NET binaries (baked into the nodemanager image).
         string cmd =
             $"hadoop jar {o.StreamingJar} " +
             $"-D mapreduce.job.reduces={o.Reduces} " +
@@ -86,27 +88,27 @@ internal static class Program
         int? splits = TryParseSplits(stderr);
         double? yarn = await TryGetYarnElapsedAsync(jobName);
 
-        // پاک‌سازیِ خروجی برای صرفه‌جوییِ دیسک.
+        // Clean up output to save disk space.
         RunProcess("docker", new[] { "exec", o.Namenode, "bash", "-c",
             $"hdfs dfs -rm -r -skipTrash {outDir} >/dev/null 2>&1 || true" }, TimeSpan.FromSeconds(60));
 
         return new Result(nodes, splitMb, run, Math.Round(sw.Elapsed.TotalSeconds, 2), yarn, splits, exit);
     }
 
-    // ──────────────────────────── کنترلِ کلاستر ────────────────────────────
+    // ──────────────────────────── Cluster control ───────────────────────────
 
     private static void Scale(string composeFile, int n, int datanodes)
     {
-        // datanode را هم صریحاً تثبیت می‌کنیم تا compose آن را به ۱ کاهش ندهد.
+        // Also explicitly pin datanode count so compose doesn't reduce it to 1.
         var (exit, _, err) = RunProcess("docker",
             new[] { "compose", "-f", composeFile, "up", "-d", "--no-recreate",
                     "--scale", $"datanode={datanodes}", "--scale", $"nodemanager={n}" },
             TimeSpan.FromMinutes(5));
         if (exit != 0)
-            Console.Error.WriteLine($"  هشدار: scale خطا داد:\n{Trunc(err)}");
+            Console.Error.WriteLine($"  Warning: scale returned an error:\n{Trunc(err)}");
     }
 
-    /// <summary>صبر تا وقتی تعدادِ گره‌های RUNNING در YARN ≥ n شود.</summary>
+    /// <summary>Wait until the number of RUNNING nodes in YARN >= n.</summary>
     private static async Task<int> WaitForNodesAsync(int n, TimeSpan timeout)
     {
         var sw = Stopwatch.StartNew();
@@ -114,12 +116,12 @@ internal static class Program
         while (sw.Elapsed < timeout)
         {
             int running = await CountRunningNodesAsync();
-            if (running != last) { Console.Write($"\r  انتظار برای ثبتِ گره‌ها: {running}/{n}   "); last = running; }
-            // برابریِ دقیق: هنگامِ scale-down باید صبر کنیم تا NodeManagerهای حذف‌شده
-            // از RM خارج شوند، وگرنه job روی کلاستری با اندازهٔ اشتباه سنجیده می‌شود.
+            if (running != last) { Console.Write($"\r  Waiting for nodes to register: {running}/{n}   "); last = running; }
+            // Exact equality: on scale-down we must wait for removed NodeManagers
+            // to deregister from RM, otherwise the job is measured on a wrong-sized cluster.
             if (running == n)
             {
-                await Task.Delay(4000); // مکثِ ته‌نشینی تا زمان‌بندی پایدار شود
+                await Task.Delay(4000); // Settling pause for stable scheduling
                 Console.WriteLine();
                 return running;
             }
@@ -170,7 +172,7 @@ internal static class Program
         return m.Success ? int.Parse(m.Groups[1].Value) : null;
     }
 
-    // ───────────────────────────── خروجی‌ها ────────────────────────────────
+    // ───────────────────────────── Outputs ──────────────────────────────────
 
     private static void AppendCsv(string path, Result r)
     {
@@ -189,7 +191,7 @@ internal static class Program
 
     private static void WriteCharts(string path, List<Result> all, Options o)
     {
-        // میانه‌ها (median) برای هر (nodes, split).
+        // Medians for each (nodes, split) combination.
         double Median(IEnumerable<double> xs)
         {
             var s = xs.OrderBy(x => x).ToArray();
@@ -203,10 +205,10 @@ internal static class Program
             Median(all.Where(r => r.Nodes == n && r.SplitMb == s && r.Exit == 0).Select(r => r.WallSec));
 
         var sb = new StringBuilder();
-        sb.AppendLine("# نتایجِ بنچمارک (میانهٔ Wall-clock بر حسب ثانیه)\n");
+        sb.AppendLine("# Benchmark Results (Median Wall-clock in seconds)\n");
 
-        // جدولِ کامل
-        sb.AppendLine("## جدولِ میانهٔ زمان (ثانیه)\n");
+        // Full table
+        sb.AppendLine("## Median Execution Time (seconds)\n");
         sb.Append("| Nodes \\ Split |");
         foreach (var s in splits) sb.Append($" {s}MB |");
         sb.AppendLine();
@@ -221,11 +223,11 @@ internal static class Program
         }
         sb.AppendLine();
 
-        // نمودار ۱: زمان بر حسب تعدادِ گره (به‌ازای split میانی)
+        // Chart 1: time vs number of nodes (for the middle split size)
         int midSplit = splits[splits.Length / 2];
         var seriesNodes = nodes.Select(n => med(n, midSplit)).ToArray();
         double yMax1 = Math.Max(1, seriesNodes.DefaultIfEmpty(1).Max()) * 1.2;
-        sb.AppendLine($"## نمودار ۱ — Execution Time vs Number of Nodes (split={midSplit}MB)\n");
+        sb.AppendLine($"## Chart 1 — Execution Time vs Number of Nodes (split={midSplit}MB)\n");
         sb.AppendLine("```mermaid");
         sb.AppendLine("xychart-beta");
         sb.AppendLine($"    title \"Execution Time vs Number of Nodes (split={midSplit}MB)\"");
@@ -235,11 +237,11 @@ internal static class Program
         sb.AppendLine($"    bar [{string.Join(", ", seriesNodes.Select(v => v.ToString("F1", CultureInfo.InvariantCulture)))}]");
         sb.AppendLine("```\n");
 
-        // نمودار ۲: زمان بر حسب اندازهٔ Split (به‌ازای بیشترین گره)
+        // Chart 2: time vs split size (for the maximum node count)
         int maxNode = nodes[^1];
         var seriesSplit = splits.Select(s => med(maxNode, s)).ToArray();
         double yMax2 = Math.Max(1, seriesSplit.DefaultIfEmpty(1).Max()) * 1.2;
-        sb.AppendLine($"## نمودار ۲ — Execution Time vs Split Size (nodes={maxNode})\n");
+        sb.AppendLine($"## Chart 2 — Execution Time vs Split Size (nodes={maxNode})\n");
         sb.AppendLine("```mermaid");
         sb.AppendLine("xychart-beta");
         sb.AppendLine($"    title \"Execution Time vs Split Size (nodes={maxNode})\"");
@@ -252,7 +254,7 @@ internal static class Program
         File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
     }
 
-    // ───────────────────────────── کمک‌ها ──────────────────────────────────
+    // ───────────────────────────── Helpers ──────────────────────────────────
 
     private static (int exit, string stdout, string stderr) RunProcess(string file, string[] args, TimeSpan timeout)
     {
@@ -290,9 +292,9 @@ internal static class Program
     private sealed class Options
     {
         public int[] Nodes = { 1, 5, 10 };
-        // Hadoop Streaming از API قدیمیِ mapred استفاده می‌کند که split.maxsize را نادیده می‌گیرد؛
-        // عملاً split.minsize تعیین‌کننده است و فقط وقتی ≥ اندازهٔ بلاک (۱۲۸MB) باشد تعدادِ split را تغییر می‌دهد.
-        // پس مقادیر ≥۱۲۸ انتخاب شده‌اند → روی فایلِ ۱ گیگ به‌ترتیب ۸/۴/۲ split.
+        // Hadoop Streaming uses the old mapred API which ignores split.maxsize;
+        // split.minsize is the effective setting and only changes split count when >= block size (128MB).
+        // Values >= 128 are chosen → on a 1GB file this gives 8/4/2 splits respectively.
         public int[] Splits = { 128, 256, 512 };
         public int Repeats = 3;
         public int Reduces = 1;

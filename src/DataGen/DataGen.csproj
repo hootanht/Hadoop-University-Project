@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    DataGen: تولیدِ دادهٔ مصنوعیِ هم‌شکل با دیتاستِ Kaggle (همان ۹ ستون).
-    دو کاربرد:
-      ۱) تولیدِ نمونهٔ کوچک برای smoke-test کلِ خط‌لوله (بدونِ نیاز به دانلودِ ۵ گیگ)،
-      ۲) به‌عنوانِ fallback اگر توکنِ Kaggle در دسترس نبود، می‌توان یک فایلِ ≥۵ گیگِ
-         واقعی برای اجرای کامل ساخت.
-    خروجی کاملاً قابلِ‌تکرار است (seed ثابت) تا شمارشِ دسته‌ها پیش‌بینی‌پذیر بماند.
+    DataGen: generates synthetic data matching the Kaggle dataset format (same 9 columns).
+    Two use cases:
+      1) Generate a small sample for smoke-testing the full pipeline (no 5GB download needed),
+      2) As a fallback when a Kaggle token is unavailable, produce a file >= 5GB
+         for a full benchmark run.
+    Output is fully reproducible (fixed seed) so category counts remain predictable.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

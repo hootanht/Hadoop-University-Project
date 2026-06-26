@@ -3,60 +3,60 @@ using System;
 namespace HadoopDotNet.Common
 {
     /// <summary>
-    /// منطقِ مشترکِ استخراجِ «دسته» از یک خطِ CSV دیتاستِ
-    /// mkechinov/ecommerce-behavior-data-from-multi-category-store.
+    /// Shared logic for extracting the "category" from a CSV line of the
+    /// mkechinov/ecommerce-behavior-data-from-multi-category-store dataset.
     ///
-    /// چیدمانِ ستون‌ها (۰-مبنا):
+    /// Column layout (0-based):
     ///   0=event_time, 1=event_type, 2=product_id, 3=category_id,
     ///   4=category_code, 5=brand, 6=price, 7=user_id, 8=user_session
     ///
-    /// «category» موردِ نظرِ کوئریِ پروژه = ستونِ شمارهٔ ۴ (category_code).
-    /// این کلاس عمداً از کتابخانه‌های سنگینِ CSV استفاده نمی‌کند؛ چون روی
-    /// چند ده میلیون خط اجرا می‌شود و سرعتِ پارس مهم است (پارسِ دستی با اسکنِ کاراکتری).
+    /// The "category" targeted by the project query = column 4 (category_code).
+    /// This class intentionally avoids heavy CSV libraries because it runs over
+    /// tens of millions of lines and parse speed matters (manual character-scan).
     /// </summary>
     public static class CategoryParser
     {
-        /// <summary>سنتینلِ مقادیرِ خالیِ category_code (هم در Mapper، هم در Validator یکسان).</summary>
+        /// <summary>Sentinel for empty category_code values (consistent across Mapper and Validator).</summary>
         public const string Unknown = "(unknown)";
 
-        /// <summary>جداکنندهٔ ستون‌ها در فایلِ ورودی.</summary>
+        /// <summary>Column delimiter in the input file.</summary>
         private const char Delimiter = ',';
 
         // ایندکسِ ستونِ هدف (category_code).
         private const int CategoryColumnIndex = 4;
 
         /// <summary>
-        /// دسته را از یک خط برمی‌گرداند.
-        /// خروجیِ null یعنی «این خط را نادیده بگیر» (خطِ هدر یا خطِ خالی/ناقص).
-        /// خروجیِ غیرِnull یعنی دستهٔ نرمال‌شده (خالی → <see cref="Unknown"/>).
+        /// Returns the category from a line.
+        /// A null return means "skip this line" (header, empty, or incomplete line).
+        /// A non-null return is the normalised category (empty → <see cref="Unknown"/>).
         /// </summary>
         public static string TryGetCategory(string line)
         {
             if (string.IsNullOrEmpty(line))
                 return null;
 
-            // ردکردنِ خطِ هدر: «event_time,event_type,...»
-            // (با skip.header در Hive و skip در Validator هم‌خوان است)
+            // Skip header line: "event_time,event_type,..."
+            // (consistent with skip.header in Hive and skip in Validator)
             if (line[0] == 'e' && line.StartsWith("event_time", StringComparison.Ordinal))
                 return null;
 
-            // یافتنِ ابتدای ستونِ ۴ = موقعیتِ بعد از چهارمین کاما.
+            // Find the start of column 4 = position after the fourth comma.
             int start = StartOfColumn(line, CategoryColumnIndex);
             if (start < 0)
-                return null; // خطِ ناقص (کمتر از ۵ ستون) → نادیده
+                return null; // incomplete line (fewer than 5 columns) → skip
 
-            // یافتنِ انتهای ستونِ ۴ = کامای بعدی (یا انتهای خط).
+            // Find the end of column 4 = next comma (or end of line).
             int end = line.IndexOf(Delimiter, start);
             int len = (end < 0 ? line.Length : end) - start;
 
-            // trim دستی (فضای ابتدا/انتها) بدون allocation اضافه.
+            // Manual trim (leading/trailing whitespace) without extra allocation.
             while (len > 0 && IsWhite(line[start])) { start++; len--; }
             while (len > 0 && IsWhite(line[start + len - 1])) { len--; }
 
             return len == 0 ? Unknown : line.Substring(start, len);
         }
 
-        /// <summary>موقعیتِ شروعِ ستونِ شمارهٔ <paramref name="columnIndex"/> (۰-مبنا) را برمی‌گرداند.</summary>
+        /// <summary>Returns the start position of column <paramref name="columnIndex"/> (0-based).</summary>
         private static int StartOfColumn(string line, int columnIndex)
         {
             if (columnIndex == 0) return 0;
