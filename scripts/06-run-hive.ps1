@@ -15,7 +15,7 @@ Invoke-LoggedCommand "docker cp $(Join-Path $Root 'hive\query.hql') hive-server:
 Write-Host "==> Running beeline (may take several minutes; Hive creates a MR job) ..." -ForegroundColor Cyan
 Invoke-LoggedCommand "docker exec hive-server beeline -u jdbc:hive2://localhost:10000 --silent=true -f /query.hql" {
   docker exec hive-server beeline -u "jdbc:hive2://localhost:10000" --silent=true -f /query.hql 2>&1 |
-    Tee-Object -FilePath (Join-Path $Root "data\hive_console.txt")
+  Tee-Object -FilePath (Join-Path $Root "data\hive_console.txt")
 }
 
 Write-Host "`n[OK] Hive output saved to data\hive_console.txt" -ForegroundColor Green

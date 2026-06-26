@@ -22,7 +22,8 @@ for ($i = 0; $i -lt 60; $i++) {
     try {
         $r = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:50070" -TimeoutSec 3
         if ($r.StatusCode -eq 200) { $ok = $true; break }
-    } catch { Start-Sleep 3 }
+    }
+    catch { Start-Sleep 3 }
 }
 if ($ok) { Write-Host "[OK] NameNode UI is up." -ForegroundColor Green }
 else { Write-Host "[WARNING] Still not responding; wait a moment and check again." -ForegroundColor Yellow }
@@ -30,7 +31,7 @@ else { Write-Host "[WARNING] Still not responding; wait a moment and check again
 Write-Host "`n--- HDFS Report (dfsadmin -report) ---"
 Invoke-LoggedCommand "docker exec namenode hdfs dfsadmin -report" {
     docker exec namenode hdfs dfsadmin -report 2>$null |
-        Select-String -Pattern "Live datanodes|Configured Capacity|DFS Used|Name:|Decommission" | Select-Object -First 20
+    Select-String -Pattern "Live datanodes|Configured Capacity|DFS Used|Name:|Decommission" | Select-Object -First 20
 }
 
 Write-Host "`n--- YARN Nodes ---"
@@ -39,7 +40,8 @@ try {
     $nodes = Invoke-RestMethod "http://localhost:8088/ws/v1/cluster/nodes" -TimeoutSec 5
     $running = @($nodes.nodes.node | Where-Object { $_.state -eq 'RUNNING' })
     Write-Host ("RUNNING NodeManagers: {0}" -f $running.Count)
-} catch { Write-Host "(YARN REST not ready yet)" }
+}
+catch { Write-Host "(YARN REST not ready yet)" }
 
 Write-Host "`nWeb UIs:" -ForegroundColor Cyan
 Write-Host "  HDFS NameNode : http://localhost:50070"

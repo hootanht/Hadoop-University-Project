@@ -8,10 +8,10 @@
     docker compose -f docker\docker-compose.yml stop hive-server hive-metastore hive-metastore-postgresql sqlserver
 #>
 param(
-    [string]$Nodes = "1,5,10",
-    [string]$Splits = "128,256,512",   # ≥ block size (128MB) to be effective in old streaming API → 8/4/2 splits
-    [int]$Repeats = 3,
-    [string]$InputPath = "/data/ecommerce/2019-Oct.csv"   # not $Input (PowerShell automatic variable)
+  [string]$Nodes = "1,5,10",
+  [string]$Splits = "128,256,512",   # ≥ block size (128MB) to be effective in old streaming API → 8/4/2 splits
+  [int]$Repeats = 3,
+  [string]$InputPath = "/data/ecommerce/2019-Oct.csv"   # not $Input (PowerShell automatic variable)
 )
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path $PSScriptRoot -Parent
@@ -26,5 +26,6 @@ try {
       --out (Join-Path $Root "results\results.csv") `
       --charts (Join-Path $Root "results\charts.md")
   }
-} finally { Pop-Location }
+}
+finally { Pop-Location }
 Write-Host "`n[OK] Results in results\results.csv and charts in results\charts.md" -ForegroundColor Green

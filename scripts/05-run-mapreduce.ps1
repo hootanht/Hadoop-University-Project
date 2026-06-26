@@ -8,10 +8,10 @@
   /etc/profile, resets PATH, and loses hadoop.
 #>
 param(
-    [int]$SplitMB = 128,
-    [int]$Reduces = 1,
-    [string]$InputPath = "/data/ecommerce/2019-Oct.csv",   # not $Input — that's a PowerShell automatic variable!
-    [string]$Out = "/out/mr_manual"
+  [int]$SplitMB = 128,
+  [int]$Reduces = 1,
+  [string]$InputPath = "/data/ecommerce/2019-Oct.csv",   # not $Input — that's a PowerShell automatic variable!
+  [string]$Out = "/out/mr_manual"
 )
 $ErrorActionPreference = 'Stop'
 $bytes = $SplitMB * 1024 * 1024
@@ -24,14 +24,14 @@ Invoke-LoggedCommand "docker exec namenode bash -c \"hdfs dfs -rm -r -skipTrash 
 
 # One-line command (without backtick) — same tested Streaming command.
 $cmd = "hadoop jar $jar" +
-       " -D mapreduce.job.reduces=$Reduces" +
-       " -D mapreduce.input.fileinputformat.split.maxsize=$bytes" +
-       " -D mapreduce.input.fileinputformat.split.minsize=$bytes" +
-       " -D mapreduce.job.name=dotnet_mr_manual" +
-       " -input $InputPath -output $Out" +
-       " -mapper /opt/dotnet-mr/Mapper/Mapper" +
-       " -combiner /opt/dotnet-mr/Reducer/Reducer" +
-       " -reducer /opt/dotnet-mr/Reducer/Reducer"
+" -D mapreduce.job.reduces=$Reduces" +
+" -D mapreduce.input.fileinputformat.split.maxsize=$bytes" +
+" -D mapreduce.input.fileinputformat.split.minsize=$bytes" +
+" -D mapreduce.job.name=dotnet_mr_manual" +
+" -input $InputPath -output $Out" +
+" -mapper /opt/dotnet-mr/Mapper/Mapper" +
+" -combiner /opt/dotnet-mr/Reducer/Reducer" +
+" -reducer /opt/dotnet-mr/Reducer/Reducer"
 
 Write-Host "==> Running Streaming (split=$SplitMB MB, reduces=$Reduces) ..." -ForegroundColor Cyan
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
