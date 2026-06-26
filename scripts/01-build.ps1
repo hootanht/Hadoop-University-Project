@@ -1,10 +1,10 @@
 <#
-  01-build.ps1 — ساختِ همهٔ اجزای .NET و ایمیجِ سفارشیِ NodeManager.
-    • Mapper/Reducer → publish به‌صورتِ self-contained linux-x64 (netcoreapp3.1)
-      در docker\nodemanager\bin تا داخلِ ایمیج کپی شوند.
-    • ابزارهای میزبان (Validator/Benchmark/DataGen) → build معمولی (net8.0).
-    • سپس ایمیجِ nodemanager با docker compose build ساخته می‌شود.
-  پارامتر -NoImage: ساختِ ایمیج را رد می‌کند (وقتی Docker لازم نیست).
+  01-build.ps1 — Build all .NET components and custom NodeManager image.
+    • Mapper/Reducer → publish as self-contained linux-x64 (netcoreapp3.1)
+      to docker\nodemanager\bin for copying into the image.
+    • Host tools (Validator/Benchmark/DataGen) → normal build (net8.0).
+    • Then nodemanager image is built with docker compose build.
+  Parameter -NoImage: skip image build (when Docker is not needed).
 #>
 param([switch]$NoImage)
 $ErrorActionPreference = 'Stop'
@@ -31,9 +31,9 @@ try {
     dotnet build src\DataGen   -c Release | Out-Null
 
     if (-not $NoImage) {
-        Write-Host "==> docker compose build nodemanager (بِیک‌کردنِ باینری‌ها در ایمیج) ..." -ForegroundColor Cyan
+        Write-Host "==> docker compose build nodemanager (baking binaries into image) ..." -ForegroundColor Cyan
         docker compose -f docker\docker-compose.yml build nodemanager
         if ($LASTEXITCODE) { throw "docker build failed" }
     }
-    Write-Host "`n[OK] build کامل شد." -ForegroundColor Green
+    Write-Host "`n[OK] Build completed." -ForegroundColor Green
 } finally { Pop-Location }

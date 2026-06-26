@@ -1,17 +1,17 @@
 <#
-  08-benchmark.ps1 — بخشِ اصلیِ پروژه: ماتریسِ بنچمارک.
-  Benchmark (پروژهٔ .NET) را اجرا می‌کند که:
-    • برای هر تعدادِ گره در {1,5,10} کلاستر را scale می‌کند،
-    • برای هر اندازهٔ split در {64,128,256}MB، job را N بار اجرا و Wall-clock را با Stopwatch می‌گیرد،
-    • results\results.csv و نمودارهای Mermaid را در results\charts.md می‌نویسد.
-  پیشنهاد: قبل از اجرا، Hive و SQL Server را خاموش کنید تا RAM برای ۱۰ گره آزاد شود:
+  08-benchmark.ps1 — Main project section: benchmark matrix.
+  Runs Benchmark (.NET project) which:
+    • For each node count in {1,5,10}, scales the cluster,
+    • For each split size in {64,128,256}MB, runs job N times and measures Wall-clock with Stopwatch,
+    • Writes results\results.csv and Mermaid charts to results\charts.md.
+  Recommendation: Before running, stop Hive and SQL Server to free RAM for 10 nodes:
     docker compose -f docker\docker-compose.yml stop hive-server hive-metastore hive-metastore-postgresql sqlserver
 #>
 param(
     [string]$Nodes = "1,5,10",
-    [string]$Splits = "128,256,512",   # ≥ اندازهٔ بلاک (۱۲۸MB) تا در API قدیمیِ streaming مؤثر باشد → ۸/۴/۲ split
+    [string]$Splits = "128,256,512",   # ≥ block size (128MB) to be effective in old streaming API → 8/4/2 splits
     [int]$Repeats = 3,
-    [string]$InputPath = "/data/ecommerce/2019-Oct.csv"   # نه $Input (متغیرِ خودکارِ PowerShell)
+    [string]$InputPath = "/data/ecommerce/2019-Oct.csv"   # not $Input (PowerShell automatic variable)
 )
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path $PSScriptRoot -Parent
@@ -24,4 +24,4 @@ try {
         --out (Join-Path $Root "results\results.csv") `
         --charts (Join-Path $Root "results\charts.md")
 } finally { Pop-Location }
-Write-Host "`n[OK] نتایج در results\results.csv و نمودارها در results\charts.md" -ForegroundColor Green
+Write-Host "`n[OK] Results in results\results.csv and charts in results\charts.md" -ForegroundColor Green
